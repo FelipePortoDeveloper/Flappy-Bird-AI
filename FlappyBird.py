@@ -9,7 +9,12 @@ ALT_TELA = 800
 
 IMAGEM_CANO = pygame.transform.scale2x(pygame.image.load(os.path.join("images", "pipe.png")))
 IMAGEM_CHAO = pygame.transform.scale2x(pygame.image.load(os.path.join("images", "base.png")))
-IMAGEM_BG = pygame.transform.scale2x(pygame.image.load(os.path.join("images", "bg.png")))
+IMAGEM_BG = [
+pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part0.png"))),
+pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part1.png"))),
+pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part2.png"))),
+pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part3.png")))
+]
 IMAGENS_PASSARO = [
     pygame.transform.scale2x(pygame.image.load(os.path.join("images", "bird1.png"))),
     pygame.transform.scale2x(pygame.image.load(os.path.join("images", "bird2.png"))),
@@ -105,7 +110,7 @@ class Passaro:
         tela.blit(imagem_rotacionada, retangulo.topleft)
 
     def get_mask(self):
-        pygame.mask.from_surface(self.imagem)
+        return pygame.mask.from_surface(self.imagem)
 
 
 class Cano:
@@ -129,7 +134,7 @@ class Cano:
     # Funções
 
     def definir_altura(self):
-        self.altura = random.randrange(50,450)
+        self.altura = random.randrange(50, 450)
         self.pos_topo = self.altura - self.CANO_TOPO.get_height()
         self.pos_base = self.altura + self.DISTANCIA
 
@@ -138,7 +143,7 @@ class Cano:
 
     def desenhar(self, tela):
         tela.blit(self.CANO_TOPO, (self.x, self.pos_topo))
-        tela.blit(self.CANO_BASE, (self.x, self.pos_base))
+        tela.blit(self.CANO_BASE , (self.x, self.pos_base))
 
     def colidir(self, passaro):
         passaro_mask = passaro.get_mask()
@@ -146,7 +151,7 @@ class Cano:
         base_mask = pygame.mask.from_surface(self.CANO_BASE)
 
         distancia_topo = (self.x - passaro.x, self.pos_topo - round(passaro.y))
-        distancia_base =(self.x - passaro.x, self.pos_base - round(passaro.y))
+        distancia_base = (self.x - passaro.x, self.pos_base - round(passaro.y))
 
         topo_ponto = passaro_mask.overlap(topo_mask, distancia_topo)
         base_ponto = passaro_mask.overlap(base_mask, distancia_base)
@@ -155,6 +160,7 @@ class Cano:
             return True
         else:
             return False
+
 
 class Chao:
     # Constantes
@@ -177,17 +183,82 @@ class Chao:
         self.x2 -= self.VELOCIDADE
 
         if self.x1 + self.LARGURA < 0:
-            self.x1 = self.x1 + self.LARGURA
+            self.x1 = self.x2 + self.LARGURA
         if self.x2 + self.LARGURA < 0:
-            self.x2 = self.x2 + self.LARGURA
+            self.x2 = self.x1 + self.LARGURA
 
     def desenhar(self, tela):
         tela.blit(self.IMAGEM, (self.x1, self.y))
         tela.blit(self.IMAGEM, (self.x2, self.y))
 
 
-def desenhar_tela(tela, passaros, canos, chao, pontuacao):
-    tela.blit(IMAGEM_BG, (0, 0))
+class BG:
+
+    def __init__(self):
+        self.nuvem_x0 = 0
+        self.nuvem_x1 = IMAGEM_BG[1].get_width()
+
+        self.velocidade_nuvem = 1
+
+        self.predios_x0 = 0
+        self.predios_x1 = IMAGEM_BG[2].get_width()
+
+        self.velocidade_predios = 2
+
+        self.grama_x0 = 0
+        self.grama_x1 = IMAGEM_BG[3].get_width()
+
+        self.velocidade_grama = 3
+
+    def mover(self):
+
+        self.nuvem_x0 -= self.velocidade_nuvem
+        self.nuvem_x1 -= self.velocidade_nuvem
+
+        if self.nuvem_x0 + IMAGEM_BG[1].get_width() < 0:
+            self.nuvem_x0 = self.nuvem_x1 + IMAGEM_BG[1].get_width()
+        if self.nuvem_x1 + IMAGEM_BG[1].get_width() < 0:
+            self.nuvem_x1 = self.nuvem_x0 + IMAGEM_BG[1].get_width()
+
+        self.predios_x0 -= self.velocidade_predios
+        self.predios_x1 -= self.velocidade_predios
+
+        if self.predios_x0 + IMAGEM_BG[2].get_width() < 0:
+            self.predios_x0 = self.predios_x1 + IMAGEM_BG[2].get_width()
+        if self.predios_x1 + IMAGEM_BG[2].get_width() < 0:
+            self.predios_x1 = self.predios_x0 + IMAGEM_BG[2].get_width()
+
+        self.grama_x0 -= self.velocidade_grama
+        self.grama_x1 -= self.velocidade_grama
+
+        if self.grama_x0 + IMAGEM_BG[3].get_width() < 0:
+            self.grama_x0 = self.grama_x1 + IMAGEM_BG[3].get_width()
+        if self.grama_x1 + IMAGEM_BG[3].get_width() < 0:
+            self.grama_x1 = self.grama_x0 + IMAGEM_BG[3].get_width()
+
+
+
+    def desenhar_bg(self, tela):
+
+        tela.blit(IMAGEM_BG[0], (0, 0))
+
+        tela.blit(IMAGEM_BG[1], (self.nuvem_x0, -200))
+        tela.blit(IMAGEM_BG[1], (self.nuvem_x1, -200))
+
+        tela.blit(IMAGEM_BG[2], (self.predios_x0, -250))
+        tela.blit(IMAGEM_BG[2], (self.predios_x1, -250))
+
+        tela.blit(IMAGEM_BG[3], (self.grama_x0, -250))
+        tela.blit(IMAGEM_BG[3], (self.grama_x1, -250))
+
+
+
+
+
+
+def desenhar_tela(tela, passaros, canos, chao, pontuacao, bg):
+
+    bg.desenhar_bg(tela)
 
     for passaro in passaros:
         passaro.desenhar(tela)
@@ -202,3 +273,76 @@ def desenhar_tela(tela, passaros, canos, chao, pontuacao):
     tela.blit(texto, (LARG_TELA - 10 - texto.get_width(), 10))
 
     pygame.display.update()
+
+
+def main():
+    passaros = [Passaro(230, 350)]
+    chao = Chao(730)
+    canos = [Cano(700)]
+    tela = pygame.display.set_mode((LARG_TELA, ALT_TELA))
+    bg = BG()
+    pontos = 0
+    relogio = pygame.time.Clock()
+
+    rodando = True
+
+    while rodando:
+
+        relogio.tick(30)
+
+        # Criando interação com o jogo
+
+        for evento in pygame.event.get():
+            if evento.type == pygame.QUIT:
+                rodando = False
+                pygame.quit()
+                quit()
+            if evento.type == pygame.KEYDOWN:
+                if evento.key == pygame.K_SPACE:
+                    for passaro in passaros:
+                        passaro.pular()
+            elif evento.type == pygame.MOUSEBUTTONDOWN:
+                if pygame.mouse.get_pressed()[0]:
+                    for passaro in passaros:
+                        passaro.pular()
+
+        # mover as coisas
+
+        for passaro in passaros:
+            passaro.mover()
+
+        bg.mover()
+        chao.mover()
+
+        adicionar_cano = False
+        remover_canos = []
+
+        for cano in canos:
+            for i, passaro in enumerate(passaros):
+                if cano.colidir(passaro):
+                    passaros.pop(i)
+                if not cano.passou and passaro.x > cano.x:
+                    cano.passou = True
+                    adicionar_cano = True
+            cano.mover()
+
+            if cano.x + cano.CANO_TOPO.get_width() < 0:
+                remover_canos.append(cano)
+
+        if adicionar_cano:
+            pontos += 1
+            canos.append(Cano(600))
+
+        for cano in remover_canos:
+            canos.remove(cano)
+            remover_canos.remove(cano)
+
+        for i, passaro in enumerate(passaros):
+            if (passaro.y + passaro.imagem.get_height()) > chao.y or passaro.y < 0:
+                passaros.pop(i)
+
+        desenhar_tela(tela, passaros, canos, chao, pontos, bg)
+
+
+if __name__ == "__main__":
+    main()
