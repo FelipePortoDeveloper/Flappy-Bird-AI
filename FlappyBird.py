@@ -284,6 +284,9 @@ def main():
     pontos = 0
     relogio = pygame.time.Clock()
 
+    pygame.display.set_caption("Flappy AI")
+    pygame.display.set_icon(IMAGENS_PASSARO[0])
+
     rodando = True
 
     while rodando:
