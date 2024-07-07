@@ -1,8 +1,14 @@
-from math import floor
-
 import pygame
 import os
 import random
+import neat
+from math import sqrt
+
+# Mudar para True se quiser a IA jogando ou para False se quiser jogar
+ai_jogando = True
+hard = False
+
+geracao = 0
 
 LARG_TELA = 500
 ALT_TELA = 800
@@ -10,10 +16,10 @@ ALT_TELA = 800
 IMAGEM_CANO = pygame.transform.scale2x(pygame.image.load(os.path.join("images", "pipe.png")))
 IMAGEM_CHAO = pygame.transform.scale2x(pygame.image.load(os.path.join("images", "base.png")))
 IMAGEM_BG = [
-pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part0.png"))),
-pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part1.png"))),
-pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part2.png"))),
-pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part3.png")))
+    pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part0.png"))),
+    pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part1.png"))),
+    pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part2.png"))),
+    pygame.transform.scale2x(pygame.image.load(os.path.join("images", "part3.png")))
 ]
 IMAGENS_PASSARO = [
     pygame.transform.scale2x(pygame.image.load(os.path.join("images", "bird1.png"))),
@@ -22,7 +28,7 @@ IMAGENS_PASSARO = [
 ]
 
 pygame.font.init()
-FONTE_PONTOS = pygame.font.SysFont("arial", 50)
+FONTE_PONTOS = pygame.font.SysFont("arial", 25)
 
 
 class Passaro:
@@ -118,6 +124,8 @@ class Cano:
 
     DISTANCIA = 200
     VELOCIDADE = 5
+    MAX_Y = 50
+    MIN_Y = 450
 
     # Atributos
 
@@ -130,6 +138,7 @@ class Cano:
         self.CANO_BASE = IMAGEM_CANO
         self.passou = False
         self.definir_altura()
+        self.velocidade_y = random.choice([-2, 2])
 
     # Funções
 
@@ -141,9 +150,20 @@ class Cano:
     def mover(self):
         self.x -= self.VELOCIDADE
 
+        if hard:
+
+            if self.pos_topo + self.CANO_TOPO.get_height() <= self.MAX_Y:
+                self.velocidade_y = 2
+            if self.pos_base - self.DISTANCIA >= self.MIN_Y:
+                self.velocidade_y = -2
+
+            self.pos_topo += self.velocidade_y
+            self.pos_base += self.velocidade_y
+            self.altura += self.velocidade_y
+
     def desenhar(self, tela):
         tela.blit(self.CANO_TOPO, (self.x, self.pos_topo))
-        tela.blit(self.CANO_BASE , (self.x, self.pos_base))
+        tela.blit(self.CANO_BASE, (self.x, self.pos_base))
 
     def colidir(self, passaro):
         passaro_mask = passaro.get_mask()
@@ -203,12 +223,12 @@ class BG:
         self.predios_x0 = 0
         self.predios_x1 = IMAGEM_BG[2].get_width()
 
-        self.velocidade_predios = 2
+        self.velocidade_predios = 3
 
         self.grama_x0 = 0
         self.grama_x1 = IMAGEM_BG[3].get_width()
 
-        self.velocidade_grama = 3
+        self.velocidade_grama = 4
 
     def mover(self):
 
@@ -236,8 +256,6 @@ class BG:
         if self.grama_x1 + IMAGEM_BG[3].get_width() < 0:
             self.grama_x1 = self.grama_x0 + IMAGEM_BG[3].get_width()
 
-
-
     def desenhar_bg(self, tela):
 
         tela.blit(IMAGEM_BG[0], (0, 0))
@@ -252,12 +270,7 @@ class BG:
         tela.blit(IMAGEM_BG[3], (self.grama_x1, -250))
 
 
-
-
-
-
 def desenhar_tela(tela, passaros, canos, chao, pontuacao, bg):
-
     bg.desenhar_bg(tela)
 
     for passaro in passaros:
@@ -268,15 +281,54 @@ def desenhar_tela(tela, passaros, canos, chao, pontuacao, bg):
 
     chao.desenhar(tela)
 
-    texto = FONTE_PONTOS.render(f"Pontuação: {pontuacao}", True, (255, 255, 255))
+    pontos_texto = FONTE_PONTOS.render(f"Pontuação: {pontuacao}", True, (255, 255, 255))
+    tela.blit(pontos_texto, (LARG_TELA - 10 - pontos_texto.get_width(), 10))
 
-    tela.blit(texto, (LARG_TELA - 10 - texto.get_width(), 10))
+    if ai_jogando:
+        geracao_texto = FONTE_PONTOS.render(f"Geração: {geracao}", True, (255, 255, 255))
+        tela.blit(geracao_texto, (10, 10))
 
     pygame.display.update()
 
 
-def main():
-    passaros = [Passaro(230, 350)]
+def distancia(x0, x1, y0, y1):
+    x = (x1 - x0) ** 2
+    y = (y1 - y0) ** 2
+
+    return sqrt(x + y)
+
+
+def main(genomas, config):  #fitness function
+
+    global geracao
+    geracao += 1
+
+    if ai_jogando:
+
+        redes = []
+        lista_genomas = []
+        passaros = []
+
+        for _, genoma in genomas:
+            # adicionando o passaro
+
+            passaros.append(Passaro(230, 350))
+
+            # adicionando o genoma do passaro
+
+            genoma.fitness = 0
+            lista_genomas.append(genoma)
+
+            # adicionando a rede neural do passaro
+
+            rede = neat.nn.FeedForwardNetwork.create(genoma, config)
+            redes.append(rede)
+
+
+
+    else:
+        passaros = [Passaro(230, 350)]
+
     chao = Chao(730)
     canos = [Cano(700)]
     tela = pygame.display.set_mode((LARG_TELA, ALT_TELA))
@@ -300,22 +352,40 @@ def main():
                 rodando = False
                 pygame.quit()
                 quit()
-            if evento.type == pygame.KEYDOWN:
-                if evento.key == pygame.K_SPACE:
-                    for passaro in passaros:
-                        passaro.pular()
-            elif evento.type == pygame.MOUSEBUTTONDOWN:
-                if pygame.mouse.get_pressed()[0]:
-                    for passaro in passaros:
-                        passaro.pular()
+
+            # Permitindo ou negando a interação do usuário
+
+            if not ai_jogando:
+
+                # Acão do jogador (apertar espaço)
+
+                if evento.type == pygame.KEYDOWN:
+                    if evento.key == pygame.K_SPACE:
+                        for passaro in passaros:
+                            passaro.pular()
+
+                # Acão do jogador (clickar no mouse)
+
+                elif evento.type == pygame.MOUSEBUTTONDOWN:
+                    if pygame.mouse.get_pressed()[0]:
+                        for passaro in passaros:
+                            passaro.pular()
+
+        # Decidindo para onde a IA deve olhar
+
+        indice_cano = 0
+
+        if len(passaros) > 0:
+            # Descobrir qual cano olhar
+
+            if len(canos) > 1 and passaros[0].x > (canos[0].x + canos[0].CANO_TOPO.get_width()):
+                indice_cano = 1
+
+        else:
+            rodando = False
+            break
 
         # mover as coisas
-
-        for passaro in passaros:
-            passaro.mover()
-
-        bg.mover()
-        chao.mover()
 
         adicionar_cano = False
         remover_canos = []
@@ -324,17 +394,63 @@ def main():
             for i, passaro in enumerate(passaros):
                 if cano.colidir(passaro):
                     passaros.pop(i)
+
+                    # punir passaro
+
+                    if ai_jogando:
+                        lista_genomas[i].fitness -= 1
+                        lista_genomas.pop(i)
+                        redes.pop(i)
+
                 if not cano.passou and passaro.x > cano.x:
                     cano.passou = True
                     adicionar_cano = True
+
             cano.mover()
 
             if cano.x + cano.CANO_TOPO.get_width() < 0:
                 remover_canos.append(cano)
 
         if adicionar_cano:
+
             pontos += 1
             canos.append(Cano(600))
+
+            # recompensar passaro
+
+            if ai_jogando:
+                for genoma in lista_genomas:
+                    genoma.fitness += 5
+
+        for i, passaro in enumerate(passaros):
+            passaro.mover()
+
+            # pontuar o passaro por andar
+
+            lista_genomas[i].fitness += 0.1
+
+            # deixando a IA controlar o passaro
+
+            # versão curso (distancia contando apenas o y)
+
+            # output = redes[i].activate(passaro.y,
+            #                            abs(passaro.y - canos[indice_cano].altura),
+            #                            abs(passaro.y - canos[indice_cano].pos_base))
+
+            # minha versão (distancia contando com o x)
+
+            output = redes[i].activate(
+                (
+                    passaro.y,
+                    abs(distancia(passaro.x, canos[indice_cano].x, passaro.y, canos[indice_cano].altura)),
+                    abs(distancia(passaro.x, canos[indice_cano].x, passaro.y, canos[indice_cano].pos_base))
+                ))
+
+            if output[0] > 0.5:
+                passaro.pular()
+
+        bg.mover()
+        chao.mover()
 
         for cano in remover_canos:
             canos.remove(cano)
@@ -344,8 +460,32 @@ def main():
             if (passaro.y + passaro.imagem.get_height()) > chao.y or passaro.y < 0:
                 passaros.pop(i)
 
+                if ai_jogando:
+                    lista_genomas[i].fitness -= 0.5
+                    lista_genomas.pop(i)
+                    redes.pop(i)
+
         desenhar_tela(tela, passaros, canos, chao, pontos, bg)
 
 
+def rodar(caminho_config):
+    config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, neat.DefaultSpeciesSet,
+                                neat.DefaultStagnation, caminho_config)
+
+    populacao = neat.Population(config)
+    populacao.add_reporter(neat.StdOutReporter(True))
+    populacao.add_reporter(neat.StatisticsReporter())
+
+    if ai_jogando:
+        populacao.run(main, 50)
+    else:
+        main(None, None)
+
+    pass
+
+
 if __name__ == "__main__":
-    main()
+    caminho = os.path.dirname(__file__)
+    caminho_config = os.path.join(caminho, "config.txt")
+
+    rodar(caminho_config)
